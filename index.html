@@ -5,7 +5,8 @@ import io
 import re
 import google.generativeai as genai
 
-print("Module imported successfully!")
+# Remove or comment out print statements in production
+# print("Module imported successfully!")
 
 # ---- INIT GEMINI ----
 genai.configure(api_key="AIzaSyCH73NYWr6tmKtRc3oEVUkgBZHDjCwTh58")  # replace with your Gemini key
@@ -18,6 +19,25 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+# Hide the hamburger menu and footer for a cleaner look
+hide_streamlit_style = """
+<style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {visibility: hidden;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# Hide the "Made with Streamlit" footer
+hide_streamlit_footer = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_footer, unsafe_allow_html=True)
 
 # ---- BEAUTIFUL CUSTOM CSS ----
 st.markdown("""
