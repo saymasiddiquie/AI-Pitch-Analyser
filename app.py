@@ -14,14 +14,36 @@ except ImportError:
     _Presentation = None
 import io
 import re
-import google.generativeai as genai
+import os
+from dotenv import load_dotenv
+# Try to import Google Generative AI SDK; don't crash if missing
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
 # Remove or comment out print statements in production
 # print("Module imported successfully!")
 
 # ---- INIT GEMINI ----
-genai.configure(api_key="AIzaSyCH73NYWr6tmKtRc3oEVUkgBZHDjCwTh58")  # replace with your Gemini key
-model = genai.GenerativeModel("gemini-1.5-flash")
+load_dotenv()
+GEMINI_API_KEY = None
+try:
+    # Prefer Streamlit Secrets if available
+    GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
+except Exception:
+    pass
+if not GEMINI_API_KEY:
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if genai is not None and GEMINI_API_KEY:
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+    except Exception:
+        model = None
+else:
+    model = None
 
 # ---- PAGE CONFIG ----
 st.set_page_config(
@@ -721,13 +743,22 @@ if uploaded_file:
                     Pitch Deck Content:
                     {text}
                     """
-                    
-                    response = model.generate_content(prompt)
-                    analysis = response.text
+
+                    if model is None:
+                        st.error("AI model is not available. Ensure 'google-generativeai' is installed and GEMINI_API_KEY is set in Streamlit Secrets or environment variables.")
+                        analysis = None
+                    else:
+                        try:
+                            response = model.generate_content(prompt)
+                            analysis = getattr(response, 'text', '') or ''
+                        except Exception as e:
+                            st.error(f"AI request failed: {e}")
+                            analysis = None
 
                 # ---- DISPLAY BEAUTIFUL ANALYSIS ----
-                st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-                st.markdown("## 📊 AI Analysis Results")
+                if analysis:
+                    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+                    st.markdown("## 📊 AI Analysis Results")
                 
                 # Parse and display with beautiful formatting
                 sections = analysis.split("**")
@@ -773,18 +804,18 @@ if uploaded_file:
                                         point = line.strip().replace('•', '').strip()
                                         st.markdown(f'<div class="bullet-container"><p class="bullet-point">• {point}</p></div>', unsafe_allow_html=True)
 
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Download button
-                col1, col2, col3 = st.columns([1,1,1])
-                with col2:
-                    st.download_button(
-                        label="📄 Download Analysis Report",
-                        data=analysis,
-                        file_name=f"pitch_analysis_{uploaded_file.name.split('.')[0]}.txt",
-                        mime="text/plain",
-                        help="Download the complete analysis as a text file"
-                    )
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Download button
+                    col1, col2, col3 = st.columns([1,1,1])
+                    with col2:
+                        st.download_button(
+                            label="📄 Download Analysis Report",
+                            data=analysis,
+                            file_name=f"pitch_analysis_{uploaded_file.name.split('.')[0]}.txt",
+                            mime="text/plain",
+                            help="Download the complete analysis as a text file"
+                        )
             
             else:
                 st.error("❌ Could not extract text from the uploaded file. Please ensure it contains readable content.")
