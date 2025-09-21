@@ -1,15 +1,66 @@
 import streamlit as st
-import PyPDF2
-from pptx import Presentation
+# Try to import a compatible PDF reader implementation. Do not crash if unavailable.
+PDF_BACKEND = "none"
+try:
+    from PyPDF2 import PdfReader as _PdfReader
+    PDF_BACKEND = "PyPDF2"
+except ImportError:
+    try:
+        from pypdf import PdfReader as _PdfReader
+        PDF_BACKEND = "pypdf"
+    except ImportError:
+        _PdfReader = None
+        # Optional fallback: pdfminer.six for text extraction only
+        try:
+            from pdfminer.high_level import extract_text as _pdfminer_extract_text
+            PDF_BACKEND = "pdfminer"
+        except ImportError:
+            _pdfminer_extract_text = None
+            PDF_BACKEND = "none"
+# Try to import PowerPoint reader. Optional dependency in some environments.
+try:
+    from pptx import Presentation as _Presentation
+    PPTX_AVAILABLE = True
+except ImportError:
+    _Presentation = None
+    PPTX_AVAILABLE = False
 import io
 import re
-import google.generativeai as genai
+import os
+# Load .env if python-dotenv is available; otherwise define a no-op.
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        return False
+# Try to import Google Generative AI SDK; don't crash if missing
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
-print("Module imported successfully!")
+# Remove or comment out print statements in production
+# print("Module imported successfully!")
 
 # ---- INIT GEMINI ----
-genai.configure(api_key="AIzaSyCH73NYWr6tmKtRc3oEVUkgBZHDjCwTh58")  # replace with your Gemini key
-model = genai.GenerativeModel("gemini-1.5-flash")
+load_dotenv()
+GEMINI_API_KEY = None
+try:
+    # Prefer Streamlit Secrets if available
+    GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
+except Exception:
+    pass
+if not GEMINI_API_KEY:
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if genai is not None and GEMINI_API_KEY:
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+    except Exception:
+        model = None
+else:
+    model = None
 
 # ---- PAGE CONFIG ----
 st.set_page_config(
@@ -19,70 +70,132 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# Hide the hamburger menu and footer for a cleaner look
+hide_streamlit_style = """
+<style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {visibility: hidden;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# Hide the "Made with Streamlit" footer
+hide_streamlit_footer = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_footer, unsafe_allow_html=True)
+
 # ---- BEAUTIFUL CUSTOM CSS ----
+with st.expander("🧪 Diagnostics", expanded=False):
+    st.write({
+        "PDF_BACKEND": PDF_BACKEND,
+        "PPTX_AVAILABLE": PPTX_AVAILABLE,
+        "GENAI_SDK": bool(genai),
+        "HAS_API_KEY": bool('GEMINI_API_KEY' in st.secrets or os.getenv('GEMINI_API_KEY'))
+    })
+
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         
         .stApp {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f5f0ff 0%, #e6e6ff 100%);
             font-family: 'Inter', sans-serif;
+            color: #2d2d5a;
         }
         
         .main-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 3rem 0;
+            background: linear-gradient(135deg, #9c89ff 0%, #6a5acd 100%);
+            padding: 4rem 0;
             text-align: center;
             border-radius: 20px;
-            margin-bottom: 2rem;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin: 2rem 0 3rem 0;
+            box-shadow: 0 15px 35px rgba(156, 137, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .main-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.2) 0%, transparent 60%);
+            pointer-events: none;
         }
         
         .main-title {
-            font-size: 3.5rem;
-            font-weight: 700;
-            background: linear-gradient(45deg, #fff, #e0e7ff);
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(45deg, #ffffff, #f0e6ff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
-            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            letter-spacing: -0.5px;
+            position: relative;
+            z-index: 1;
         }
         
         .subtitle {
-            color: #e0e7ff;
-            font-size: 1.2rem;
-            font-weight: 300;
-            margin-bottom: 2rem;
+            color: #f0f0ff;
+            font-size: 1.4rem;
+            font-weight: 400;
+            margin: 0.5rem 0 2rem 0;
+            max-width: 800px;
+            line-height: 1.6;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
         
         .upload-container {
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(20px);
-            padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            margin-bottom: 2rem;
+            padding: 2.5rem;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(156, 137, 255, 0.15);
+            border: 2px dashed #b8a9ff;
+            margin: 2rem 0 3rem 0;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .upload-container:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 45px rgba(156, 137, 255, 0.25);
+            border-color: #9c89ff;
         }
         
         .stButton > button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8a7aff 0%, #6a5acd 100%);
             color: white;
             border: none;
-            padding: 1rem 3rem;
+            padding: 1.1rem 3.5rem;
             border-radius: 50px;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             font-weight: 600;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-top: 1rem;
+            box-shadow: 0 10px 30px rgba(138, 122, 255, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: auto;
+            margin: 1.5rem auto 0;
+            display: inline-block;
+            min-width: 250px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .stButton > button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 20px 45px rgba(138, 122, 255, 0.5);
+            background: linear-gradient(135deg, #6a5acd 0%, #8a7aff 100%);
         }
         
         .analysis-card {
@@ -122,13 +235,31 @@ st.markdown("""
         }
         
         .bullet-container {
-            background: linear-gradient(135deg, #f8faff, #e0e7ff);
-            padding: 1.2rem;
+            background: linear-gradient(135deg, #f9f7ff, #f0ecff);
+            padding: 1.5rem;
             border-radius: 15px;
-            margin: 0.8rem 0;
-            border-left: 5px solid #667eea;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-            transition: transform 0.2s ease;
+            margin: 1rem 0;
+            border-left: 5px solid #8a7aff;
+            box-shadow: 0 5px 20px rgba(156, 137, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .bullet-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(138, 122, 255, 0.1), rgba(106, 90, 205, 0.1));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .bullet-container:hover::before {
+            opacity: 1;
         }
         
         .bullet-container:hover {
@@ -136,23 +267,43 @@ st.markdown("""
         }
         
         .bullet-point {
-            color: #2d3748;
-            font-size: 1rem;
+            color: #3d3d6b;
+            font-size: 1.1rem;
             font-weight: 500;
-            line-height: 1.6;
+            line-height: 1.7;
             margin: 0;
+            position: relative;
+            padding-left: 1.5rem;
+        }
+        
+        .bullet-point::before {
+            content: '•';
+            color: #8a7aff;
+            font-size: 1.8rem;
+            position: absolute;
+            left: -0.2rem;
+            top: -0.4rem;
+            line-height: 1;
         }
         
         .highlight-metric {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #8a7aff, #6a5acd);
             color: white;
-            padding: 0.8rem 1.5rem;
-            border-radius: 25px;
+            padding: 1rem 2rem;
+            border-radius: 30px;
             display: inline-block;
             font-weight: 600;
             margin: 0.5rem;
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-            font-size: 0.95rem;
+            box-shadow: 0 10px 25px rgba(138, 122, 255, 0.3);
+            font-size: 1.1rem;
+            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .highlight-metric:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(138, 122, 255, 0.4);
         }
         
         .investment-card {
@@ -165,13 +316,23 @@ st.markdown("""
         }
         
         .competitor-badge {
-            background: rgba(102, 126, 234, 0.1);
-            border: 2px solid #667eea;
-            padding: 0.8rem 1.2rem;
+            background: rgba(138, 122, 255, 0.1);
+            border: 2px solid rgba(138, 122, 255, 0.3);
+            padding: 1rem 1.5rem;
             border-radius: 15px;
-            margin: 0.5rem 0;
-            color: #667eea;
+            margin: 0.8rem 0;
+            color: #4a3b8a;
             font-weight: 600;
+            font-size: 1.05rem;
+            transition: all 0.3s ease;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .competitor-badge:hover {
+            background: rgba(138, 122, 255, 0.15);
+            border-color: #8a7aff;
+            transform: translateX(5px);
         }
         
         .loading-text {
@@ -183,13 +344,257 @@ st.markdown("""
         }
         
         .download-btn {
+            background: linear-gradient(135deg, #8a7aff, #6a5acd);
+            color: white;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            box-shadow: 0 10px 25px rgba(138, 122, 255, 0.3);
+            margin: 2rem auto 1rem;
+            display: inline-block;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            min-width: 250px;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(138, 122, 255, 0.4);
+            color: white;
+        }
+        
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .header-illustration {
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .header-illustration img {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .cta-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            text-decoration: none;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        
+        .primary {
             background: linear-gradient(135deg, #10b981, #059669);
             color: white;
             padding: 0.8rem 2rem;
             border-radius: 50px;
             font-weight: 600;
             box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
-            margin-top: 1rem;
+        }
+        
+        .primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(16, 185, 129, 0.6);
+            background: linear-gradient(135deg, #059669, #10b981);
+        }
+        
+        .secondary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .secondary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        
+        .features-section {
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            padding: 2.5rem 2rem;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(156, 137, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.8);
+            transition: all 0.3s ease;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #8a7aff, #6a5acd);
+            transition: all 0.3s ease;
+            opacity: 0;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 45px rgba(156, 137, 255, 0.2);
+        }
+        
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            background: linear-gradient(135deg, #8a7aff 0%, #6a5acd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .section-spacer {
+            margin-top: 4rem;
+        }
+        
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .step-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-right: 1.5rem;
+            color: #8a7aff;
+            min-width: 50px;
+            height: 50px;
+            background: rgba(138, 122, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(138, 122, 255, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .step-number::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 2px solid rgba(138, 122, 255, 0.3);
+            border-radius: 50%;
+            z-index: -1;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.1); opacity: 0.4; }
+            100% { transform: scale(1); opacity: 0.7; }
+        }
+        
+        .step-content {
+            padding: 1rem;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            color: #4a3b8a;
+            margin: 4rem 0 2rem 0;
+            text-align: center;
+            font-weight: 700;
+            position: relative;
+            display: inline-block;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0 2rem;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #8a7aff, #6a5acd);
+            border-radius: 2px;
+        }
+        
+        .step-content h4 {
+            color: #4a3b8a;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+        
+        .step-content p {
+            color: #6b6b8a;
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.6;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -197,15 +602,85 @@ st.markdown("""
 # ---- BEAUTIFUL HEADER ----
 st.markdown("""
     <div class="main-header">
-        <h1 class="main-title">🚀 AI Pitch Deck Analyzer</h1>
-        <p class="subtitle">Transform your pitch deck into actionable insights with AI-powered analysis</p>
+        <div class="header-content">
+            <h1 class="main-title">🚀 AI-Powered Pitch Deck Analysis</h1>
+            <p class="subtitle">Get instant, comprehensive insights into any pitch deck with our AI-powered analysis platform</p>
+            <div class="cta-buttons">
+                <a href="#upload-section" class="cta-button primary">Analyze Now</a>
+                <a href="#features" class="cta-button secondary">Learn More</a>
+            </div>
+        </div>
+        <div class="header-illustration">
+            <img src="https://img.icons8.com/clouds/300/000000/rocket.png" alt="Rocket Illustration">
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
-# ---- UPLOAD SECTION ----
-st.markdown('<div class="upload-container">', unsafe_allow_html=True)
+# Features Section
+st.markdown("<div id='features'></div>", unsafe_allow_html=True)
+st.markdown("""
+    <div class="features-section">
+        <h2 class="section-title">Why Choose Our Pitch Deck Analyzer?</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Lightning Fast</h3>
+                <p>Get detailed analysis in seconds, not hours</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>Actionable Insights</h3>
+                <p>Clear, practical recommendations to improve your pitch</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔍</div>
+                <h3>Deep Analysis</h3>
+                <p>Comprehensive evaluation of all key aspects</p>
+            </div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
+
+# Upload Section
+st.markdown("<div id='upload-section' class='section-spacer'></div>", unsafe_allow_html=True)
+st.markdown("<h2 class='section-title'>Upload Your Pitch Deck</h2>", unsafe_allow_html=True)
+
+# How It Works Section
+with st.expander("ℹ️ How It Works", expanded=False):
+    st.markdown("""
+    <div class="steps-container">
+        <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <h4>Upload Your Pitch Deck</h4>
+                <p>Upload a PDF or PowerPoint file (PPTX) of your pitch deck</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <h4>AI Analysis</h4>
+                <p>Our AI will analyze your deck's content, structure, and messaging</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <h4>Get Insights</h4>
+                <p>Receive detailed feedback and recommendations</p>
+            </div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
+
 st.markdown("### 📁 Upload Your Pitch Deck")
-uploaded_file = st.file_uploader("Choose a PDF or PowerPoint file", type=["pdf", "pptx"], help="Supported formats: PDF, PPTX")
+uploaded_file = st.file_uploader(
+    "Upload your pitch deck",
+    type=["pdf", "pptx"],
+    accept_multiple_files=False,
+    help="Supported formats: PDF, PPTX",
+    label_visibility="collapsed"
+)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ---- ANALYSIS SECTION ----
@@ -219,19 +694,45 @@ if uploaded_file:
             with st.spinner("📖 Extracting content from your pitch deck..."):
                 # PDF extraction
                 if uploaded_file.name.endswith(".pdf"):
-                    reader = PyPDF2.PdfReader(uploaded_file)
-                    for page in reader.pages:
-                        page_text = page.extract_text()
-                        if page_text:
-                            text += page_text + "\n"
+                    if _PdfReader is not None:
+                        reader = _PdfReader(uploaded_file)
+                        for page in reader.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text += page_text + "\n"
+                    elif '_pdfminer_extract_text' in globals() and _pdfminer_extract_text is not None:
+                        # Use pdfminer as a fallback (handles text-based PDFs, not images)
+                        try:
+                            pdf_bytes = uploaded_file.read()
+                            text_content = _pdfminer_extract_text(io.BytesIO(pdf_bytes))
+                            if text_content:
+                                text += text_content
+                        except Exception as e:
+                            st.error(f"PDF text extraction failed: {e}")
+                    else:
+                        st.error("PDF reader dependency not found. Please ensure PyPDF2 or pypdf (or pdfminer.six) is installed.")
                 
                 # PPTX extraction
                 elif uploaded_file.name.endswith(".pptx"):
-                    prs = Presentation(io.BytesIO(uploaded_file.read()))
-                    for slide in prs.slides:
-                        for shape in slide.shapes:
-                            if hasattr(shape, "text") and shape.text:
-                                text += shape.text + "\n"
+                    if _Presentation is None:
+                        st.error("PPTX support is unavailable. Please ensure the 'python-pptx' package is installed.")
+                    else:
+                        prs = _Presentation(io.BytesIO(uploaded_file.read()))
+                        for slide in prs.slides:
+                            for shape in slide.shapes:
+                                # Extract text from text frames
+                                if getattr(shape, "has_text_frame", False) and shape.has_text_frame:
+                                    for paragraph in shape.text_frame.paragraphs:
+                                        line = "".join(run.text for run in paragraph.runs).strip()
+                                        if line:
+                                            text += line + "\n"
+                                # Extract text from table cells if present
+                                elif getattr(shape, "has_table", False) and shape.has_table:
+                                    for row in shape.table.rows:
+                                        for cell in row.cells:
+                                            cell_text = cell.text.strip()
+                                            if cell_text:
+                                                text += cell_text + "\n"
             
             # ---- AI ANALYSIS ----
             if text:
@@ -287,13 +788,22 @@ if uploaded_file:
                     Pitch Deck Content:
                     {text}
                     """
-                    
-                    response = model.generate_content(prompt)
-                    analysis = response.text
+
+                    if model is None:
+                        st.error("AI model is not available. Ensure 'google-generativeai' is installed and GEMINI_API_KEY is set in Streamlit Secrets or environment variables.")
+                        analysis = None
+                    else:
+                        try:
+                            response = model.generate_content(prompt)
+                            analysis = getattr(response, 'text', '') or ''
+                        except Exception as e:
+                            st.error(f"AI request failed: {e}")
+                            analysis = None
 
                 # ---- DISPLAY BEAUTIFUL ANALYSIS ----
-                st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-                st.markdown("## 📊 AI Analysis Results")
+                if analysis:
+                    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+                    st.markdown("## 📊 AI Analysis Results")
                 
                 # Parse and display with beautiful formatting
                 sections = analysis.split("**")
@@ -339,18 +849,18 @@ if uploaded_file:
                                         point = line.strip().replace('•', '').strip()
                                         st.markdown(f'<div class="bullet-container"><p class="bullet-point">• {point}</p></div>', unsafe_allow_html=True)
 
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Download button
-                col1, col2, col3 = st.columns([1,1,1])
-                with col2:
-                    st.download_button(
-                        label="📄 Download Analysis Report",
-                        data=analysis,
-                        file_name=f"pitch_analysis_{uploaded_file.name.split('.')[0]}.txt",
-                        mime="text/plain",
-                        help="Download the complete analysis as a text file"
-                    )
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Download button
+                    col1, col2, col3 = st.columns([1,1,1])
+                    with col2:
+                        st.download_button(
+                            label="📄 Download Analysis Report",
+                            data=analysis,
+                            file_name=f"pitch_analysis_{uploaded_file.name.split('.')[0]}.txt",
+                            mime="text/plain",
+                            help="Download the complete analysis as a text file"
+                        )
             
             else:
                 st.error("❌ Could not extract text from the uploaded file. Please ensure it contains readable content.")
