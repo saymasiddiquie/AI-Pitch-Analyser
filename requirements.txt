@@ -1,21 +1,8 @@
-# Upgrade pip first
-pip>=25.2
-
-# Core app
 streamlit==1.31.0
-
-# Pretty logging
-rich==14.1.0
-
-# PDF parsing
-pypdf==3.9.0
-pdfminer.six==20221105
-
-# PPTX parsing
-python-pptx==1.0.2
-Pillow==11.0.0
-lxml==5.2.2
-
-# Gemini SDK + env loader
+pypdf>=4.2.0
+python-pptx==0.6.21
 google-generativeai==0.3.1
-python-dotenv==1.0.0
+python-dotenv>=1.0.0
+Pillow>=10.4.0
+lxml>=5.2.1
+pdfminer.six>=20221105
