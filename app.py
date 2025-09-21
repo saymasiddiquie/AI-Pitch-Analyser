@@ -687,7 +687,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 if uploaded_file:
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        if st.button("🔍 Generate AI Analysis"):
+        if st.button("🔍 Generate AI Analysis", key="analyze-btn"):
             text = ""
             
             # File extraction with progress
@@ -804,53 +804,53 @@ if uploaded_file:
                 if analysis:
                     st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
                     st.markdown("## 📊 AI Analysis Results")
-                
-                # Parse and display with beautiful formatting
-                sections = analysis.split("**")
-                icons = {
-                    "EXECUTIVE SUMMARY": "🎯",
-                    "STRENGTHS": "💪",
-                    "WEAKNESSES": "⚠️",
-                    "OPPORTUNITIES": "🚀",
-                    "THREATS": "⚡",
-                    "KEY RISKS": "🚨",
-                    "MAIN COMPETITORS": "🏆",
-                    "INVESTMENT ANALYSIS": "💰"
-                }
-                
-                for i in range(1, len(sections), 2):
-                    if i < len(sections):
-                        section_title = sections[i].strip()
-                        section_content = sections[i+1].strip() if i+1 < len(sections) else ""
-                        
-                        if section_title in icons:
-                            st.markdown(f'<div class="section-header">{icons[section_title]} {section_title}</div>', unsafe_allow_html=True)
-                            
-                            # Special formatting for investment section
-                            if section_title == "INVESTMENT ANALYSIS":
-                                st.markdown('<div class="investment-card">', unsafe_allow_html=True)
-                                for line in section_content.split('\n'):
-                                    if line.strip() and line.strip().startswith('•'):
-                                        point = line.strip().replace('•', '').strip()
-                                        st.markdown(f'<div class="highlight-metric">{point}</div>', unsafe_allow_html=True)
-                                st.markdown('</div>', unsafe_allow_html=True)
-                            
-                            # Special formatting for competitors
-                            elif section_title == "MAIN COMPETITORS":
-                                for line in section_content.split('\n'):
-                                    if line.strip() and line.strip().startswith('•'):
-                                        point = line.strip().replace('•', '').strip()
-                                        st.markdown(f'<div class="competitor-badge">🏢 {point}</div>', unsafe_allow_html=True)
-                            
-                            # Regular bullet points for other sections
-                            else:
-                                for line in section_content.split('\n'):
-                                    if line.strip() and line.strip().startswith('•'):
-                                        point = line.strip().replace('•', '').strip()
-                                        st.markdown(f'<div class="bullet-container"><p class="bullet-point">• {point}</p></div>', unsafe_allow_html=True)
+
+                    # Parse and display with beautiful formatting
+                    sections = analysis.split("**")
+                    icons = {
+                        "EXECUTIVE SUMMARY": "🎯",
+                        "STRENGTHS": "💪",
+                        "WEAKNESSES": "⚠️",
+                        "OPPORTUNITIES": "🚀",
+                        "THREATS": "⚡",
+                        "KEY RISKS": "🚨",
+                        "MAIN COMPETITORS": "🏆",
+                        "INVESTMENT ANALYSIS": "💰"
+                    }
+
+                    for i in range(1, len(sections), 2):
+                        if i < len(sections):
+                            section_title = sections[i].strip()
+                            section_content = sections[i+1].strip() if i+1 < len(sections) else ""
+
+                            if section_title in icons:
+                                st.markdown(f'<div class="section-header">{icons[section_title]} {section_title}</div>', unsafe_allow_html=True)
+
+                                # Special formatting for investment section
+                                if section_title == "INVESTMENT ANALYSIS":
+                                    st.markdown('<div class="investment-card">', unsafe_allow_html=True)
+                                    for line in section_content.split('\n'):
+                                        if line.strip() and line.strip().startswith('•'):
+                                            point = line.strip().replace('•', '').strip()
+                                            st.markdown(f'<div class="highlight-metric">{point}</div>', unsafe_allow_html=True)
+                                    st.markdown('</div>', unsafe_allow_html=True)
+
+                                # Special formatting for competitors
+                                elif section_title == "MAIN COMPETITORS":
+                                    for line in section_content.split('\n'):
+                                        if line.strip() and line.strip().startswith('•'):
+                                            point = line.strip().replace('•', '').strip()
+                                            st.markdown(f'<div class="competitor-badge">🏢 {point}</div>', unsafe_allow_html=True)
+
+                                # Regular bullet points for other sections
+                                else:
+                                    for line in section_content.split('\n'):
+                                        if line.strip() and line.strip().startswith('•'):
+                                            point = line.strip().replace('•', '').strip()
+                                            st.markdown(f'<div class="bullet-container"><p class="bullet-point">• {point}</p></div>', unsafe_allow_html=True)
 
                     st.markdown('</div>', unsafe_allow_html=True)
-                    
+
                     # Download button
                     col1, col2, col3 = st.columns([1,1,1])
                     with col2:
@@ -859,8 +859,11 @@ if uploaded_file:
                             data=analysis,
                             file_name=f"pitch_analysis_{uploaded_file.name.split('.')[0]}.txt",
                             mime="text/plain",
-                            help="Download the complete analysis as a text file"
+                            help="Download the complete analysis as a text file",
+                            key=f"download-btn-{uploaded_file.name}"
                         )
+                else:
+                    st.warning("No analysis was generated. Ensure the AI model is available and GEMINI_API_KEY is set in Streamlit Secrets or as an environment variable.")
             
             else:
                 st.error("❌ Could not extract text from the uploaded file. Please ensure it contains readable content.")
