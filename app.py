@@ -7,7 +7,11 @@ except ImportError:
         from pypdf import PdfReader as _PdfReader
     except ImportError:
         _PdfReader = None
-from pptx import Presentation
+# Try to import PowerPoint reader. Optional dependency in some environments.
+try:
+    from pptx import Presentation as _Presentation
+except ImportError:
+    _Presentation = None
 import io
 import re
 import google.generativeai as genai
@@ -654,11 +658,14 @@ if uploaded_file:
                 
                 # PPTX extraction
                 elif uploaded_file.name.endswith(".pptx"):
-                    prs = Presentation(io.BytesIO(uploaded_file.read()))
-                    for slide in prs.slides:
-                        for shape in slide.shapes:
-                            if hasattr(shape, "text") and shape.text:
-                                text += shape.text + "\n"
+                    if _Presentation is None:
+                        st.error("PPTX support is unavailable. Please ensure the 'python-pptx' package is installed.")
+                    else:
+                        prs = _Presentation(io.BytesIO(uploaded_file.read()))
+                        for slide in prs.slides:
+                            for shape in slide.shapes:
+                                if hasattr(shape, "text") and shape.text:
+                                    text += shape.text + "\n"
             
             # ---- AI ANALYSIS ----
             if text:
