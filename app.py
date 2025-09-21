@@ -1,8 +1,12 @@
 import streamlit as st
+# Try to import a compatible PDF reader implementation. Do not crash if unavailable.
 try:
-    import PyPDF2 as pypdf
-except ImportError:  # Fallback for environments where PyPDF2 isn't available
-    import pypdf as pypdf
+    from PyPDF2 import PdfReader as _PdfReader
+except ImportError:
+    try:
+        from pypdf import PdfReader as _PdfReader
+    except ImportError:
+        _PdfReader = None
 from pptx import Presentation
 import io
 import re
@@ -639,11 +643,14 @@ if uploaded_file:
             with st.spinner("📖 Extracting content from your pitch deck..."):
                 # PDF extraction
                 if uploaded_file.name.endswith(".pdf"):
-                    reader = pypdf.PdfReader(uploaded_file)
-                    for page in reader.pages:
-                        page_text = page.extract_text()
-                        if page_text:
-                            text += page_text + "\n"
+                    if _PdfReader is None:
+                        st.error("PDF reader dependency not found. Please ensure either PyPDF2 or pypdf is installed.")
+                    else:
+                        reader = _PdfReader(uploaded_file)
+                        for page in reader.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text += page_text + "\n"
                 
                 # PPTX extraction
                 elif uploaded_file.name.endswith(".pptx"):
