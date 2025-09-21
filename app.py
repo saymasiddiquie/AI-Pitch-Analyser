@@ -15,7 +15,12 @@ except ImportError:
 import io
 import re
 import os
-from dotenv import load_dotenv
+# Load .env if python-dotenv is available; otherwise define a no-op.
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        return False
 # Try to import Google Generative AI SDK; don't crash if missing
 try:
     import google.generativeai as genai
