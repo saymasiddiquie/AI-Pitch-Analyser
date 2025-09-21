@@ -133,12 +133,10 @@ st.markdown("""
         
         .main-title {
             font-size: 4rem;
-            font-weight: 800;
-            background: linear-gradient(45deg, #ffffff, #f0e6ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-weight: 900;
+            color: #ffffff !important;
             margin-bottom: 1rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-shadow: 0 3px 8px rgba(0,0,0,0.25);
             letter-spacing: -0.5px;
             position: relative;
             z-index: 1;
