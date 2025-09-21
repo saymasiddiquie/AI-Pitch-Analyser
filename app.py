@@ -705,8 +705,19 @@ if uploaded_file:
                         prs = _Presentation(io.BytesIO(uploaded_file.read()))
                         for slide in prs.slides:
                             for shape in slide.shapes:
-                                if hasattr(shape, "text") and shape.text:
-                                    text += shape.text + "\n"
+                                # Extract text from text frames
+                                if getattr(shape, "has_text_frame", False) and shape.has_text_frame:
+                                    for paragraph in shape.text_frame.paragraphs:
+                                        line = "".join(run.text for run in paragraph.runs).strip()
+                                        if line:
+                                            text += line + "\n"
+                                # Extract text from table cells if present
+                                elif getattr(shape, "has_table", False) and shape.has_table:
+                                    for row in shape.table.rows:
+                                        for cell in row.cells:
+                                            cell_text = cell.text.strip()
+                                            if cell_text:
+                                                text += cell_text + "\n"
             
             # ---- AI ANALYSIS ----
             if text:
