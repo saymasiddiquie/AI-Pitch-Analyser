@@ -1,11 +1,17 @@
+# Upgrade pip first
+pip>=25.2
+
 # Core app
 streamlit==1.31.0
 
-# PDF parsing (use a single library to reduce conflicts)
-pypdf==3.9.0
-pdfminer.six==20221105  # fallback text extractor
+# Pretty logging
+rich==14.1.0
 
-# PPTX parsing (use latest 1.x, with matching wheels)
+# PDF parsing
+pypdf==3.9.0
+pdfminer.six==20221105
+
+# PPTX parsing
 python-pptx==1.0.2
 Pillow==11.0.0
 lxml==5.2.2
@@ -13,5 +19,3 @@ lxml==5.2.2
 # Gemini SDK + env loader
 google-generativeai==0.3.1
 python-dotenv==1.0.0
-
-# rebuild 2025-09-21-12-10
