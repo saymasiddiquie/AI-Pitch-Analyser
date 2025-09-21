@@ -1,5 +1,8 @@
 import streamlit as st
-import PyPDF2
+try:
+    import PyPDF2 as pypdf
+except ImportError:  # Fallback for environments where PyPDF2 isn't available
+    import pypdf as pypdf
 from pptx import Presentation
 import io
 import re
@@ -613,11 +616,11 @@ with st.expander("ℹ️ How It Works", expanded=False):
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 st.markdown("### 📁 Upload Your Pitch Deck")
 uploaded_file = st.file_uploader(
-    "",
+    "Upload your pitch deck",
     type=["pdf", "pptx"],
     accept_multiple_files=False,
     help="Supported formats: PDF, PPTX",
@@ -636,7 +639,7 @@ if uploaded_file:
             with st.spinner("📖 Extracting content from your pitch deck..."):
                 # PDF extraction
                 if uploaded_file.name.endswith(".pdf"):
-                    reader = PyPDF2.PdfReader(uploaded_file)
+                    reader = pypdf.PdfReader(uploaded_file)
                     for page in reader.pages:
                         page_text = page.extract_text()
                         if page_text:
