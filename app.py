@@ -7,6 +7,11 @@ except ImportError:
         from pypdf import PdfReader as _PdfReader
     except ImportError:
         _PdfReader = None
+        # Optional fallback: pdfminer.six for text extraction only
+        try:
+            from pdfminer.high_level import extract_text as _pdfminer_extract_text
+        except ImportError:
+            _pdfminer_extract_text = None
 # Try to import PowerPoint reader. Optional dependency in some environments.
 try:
     from pptx import Presentation as _Presentation
@@ -674,14 +679,23 @@ if uploaded_file:
             with st.spinner("📖 Extracting content from your pitch deck..."):
                 # PDF extraction
                 if uploaded_file.name.endswith(".pdf"):
-                    if _PdfReader is None:
-                        st.error("PDF reader dependency not found. Please ensure either PyPDF2 or pypdf is installed.")
-                    else:
+                    if _PdfReader is not None:
                         reader = _PdfReader(uploaded_file)
                         for page in reader.pages:
                             page_text = page.extract_text()
                             if page_text:
                                 text += page_text + "\n"
+                    elif '_pdfminer_extract_text' in globals() and _pdfminer_extract_text is not None:
+                        # Use pdfminer as a fallback (handles text-based PDFs, not images)
+                        try:
+                            pdf_bytes = uploaded_file.read()
+                            text_content = _pdfminer_extract_text(io.BytesIO(pdf_bytes))
+                            if text_content:
+                                text += text_content
+                        except Exception as e:
+                            st.error(f"PDF text extraction failed: {e}")
+                    else:
+                        st.error("PDF reader dependency not found. Please ensure PyPDF2 or pypdf (or pdfminer.six) is installed.")
                 
                 # PPTX extraction
                 elif uploaded_file.name.endswith(".pptx"):
