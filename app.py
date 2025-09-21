@@ -1,22 +1,29 @@
 import streamlit as st
 # Try to import a compatible PDF reader implementation. Do not crash if unavailable.
+PDF_BACKEND = "none"
 try:
     from PyPDF2 import PdfReader as _PdfReader
+    PDF_BACKEND = "PyPDF2"
 except ImportError:
     try:
         from pypdf import PdfReader as _PdfReader
+        PDF_BACKEND = "pypdf"
     except ImportError:
         _PdfReader = None
         # Optional fallback: pdfminer.six for text extraction only
         try:
             from pdfminer.high_level import extract_text as _pdfminer_extract_text
+            PDF_BACKEND = "pdfminer"
         except ImportError:
             _pdfminer_extract_text = None
+            PDF_BACKEND = "none"
 # Try to import PowerPoint reader. Optional dependency in some environments.
 try:
     from pptx import Presentation as _Presentation
+    PPTX_AVAILABLE = True
 except ImportError:
     _Presentation = None
+    PPTX_AVAILABLE = False
 import io
 import re
 import os
@@ -83,6 +90,14 @@ hide_streamlit_footer = """
 st.markdown(hide_streamlit_footer, unsafe_allow_html=True)
 
 # ---- BEAUTIFUL CUSTOM CSS ----
+with st.expander("🧪 Diagnostics", expanded=False):
+    st.write({
+        "PDF_BACKEND": PDF_BACKEND,
+        "PPTX_AVAILABLE": PPTX_AVAILABLE,
+        "GENAI_SDK": bool(genai),
+        "HAS_API_KEY": bool('GEMINI_API_KEY' in st.secrets or os.getenv('GEMINI_API_KEY'))
+    })
+
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
