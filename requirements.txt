@@ -1,9 +1,17 @@
+# Core app
 streamlit==1.31.0
-PyPDF2==3.0.1
+
+# PDF parsing (use a single library to reduce conflicts)
 pypdf==3.9.0
-pdfminer.six==20221105
-python-pptx==0.6.21
-Pillow==10.4.0
-lxml==4.9.3
+pdfminer.six==20221105  # fallback text extractor
+
+# PPTX parsing (use latest 1.x, with matching wheels)
+python-pptx==1.0.2
+Pillow==11.0.0
+lxml==5.2.2
+
+# Gemini SDK + env loader
 google-generativeai==0.3.1
 python-dotenv==1.0.0
+
+# rebuild 2025-09-21-12-10
